@@ -1,4 +1,5 @@
 from sqlalchemy import create_engine
+from sqlalchemy import or_
 from sqlalchemy.orm import sessionmaker, Session
 
 from bot.config import settings
@@ -6,6 +7,18 @@ from bot.models import Car
 
 engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+BRAND_SEARCH_ALIASES = {
+    "bmw": ["BMW", "БМВ", "ビーエム", "ＢＭＷ"],
+    "toyota": ["Toyota", "Тойота", "トヨタ"],
+    "honda": ["Honda", "Хонда", "ホンダ"],
+    "nissan": ["Nissan", "Ниссан", "日産", "ニッサン"],
+    "mercedes": ["Mercedes", "Benz", "Мерседес", "メルセデス", "ベンツ"],
+    "audi": ["Audi", "Ауди", "アウディ"],
+    "mazda": ["Mazda", "Мазда", "マツダ"],
+    "subaru": ["Subaru", "Субару", "スバル"],
+    "lexus": ["Lexus", "Лексус", "レクサス"],
+}
 
 
 def search_cars(filters: dict, limit: int = 10) -> list[Car]:
@@ -16,7 +29,13 @@ def search_cars(filters: dict, limit: int = 10) -> list[Car]:
 
         brand = filters.get("brand")
         if brand:
-            query = query.filter(Car.brand.ilike(f"%{brand}%"))
+            brand_value = str(brand).strip()
+            aliases = BRAND_SEARCH_ALIASES.get(brand_value.lower(), [brand_value])
+            brand_conditions = []
+            for alias in aliases:
+                brand_conditions.append(Car.brand.ilike(f"%{alias}%"))
+                brand_conditions.append(Car.model.ilike(f"%{alias}%"))
+            query = query.filter(or_(*brand_conditions))
 
         model = filters.get("model")
         if model:
