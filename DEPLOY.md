@@ -258,6 +258,9 @@ docker compose exec backend python -c "from app.database import SessionLocal; pr
 | `ADMIN_USERNAME` | Yes | `admin` | Default admin username |
 | `ADMIN_PASSWORD` | Yes | `admin123` | Default admin password |
 | `SCRAPE_INTERVAL_MINUTES` | Yes | `60` | How often the scraper runs (minutes) |
+| `BACKEND_API_BASE_URL` | Yes | `http://backend:8000` | Internal backend URL used by bot for on-demand scrape trigger/status |
+| `BOT_FRESH_WAIT_SECONDS` | Yes | `180` | How long bot waits for live scrape completion before showing cached results |
+| `BOT_STATUS_POLL_INTERVAL_SECONDS` | Yes | `5` | How often bot polls backend scrape job status during waiting window |
 | `TELEGRAM_BOT_TOKEN` | **Yes** | _(empty)_ | From @BotFather (see section 1.1) |
 | `GEMINI_API_KEY` | **Yes** | _(empty)_ | From Google AI Studio (see section 1.2) |
 
