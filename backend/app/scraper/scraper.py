@@ -7,6 +7,51 @@ from app.scraper.parser_bs import scrape_listings
 from app.scraper.upsert import upsert_cars
 
 
+_BRAND_CATALOG_SLUGS = {
+    "bmw": "bmw",
+    "бмв": "bmw",
+    "ビーエム": "bmw",
+    "toyota": "toyota",
+    "тойота": "toyota",
+    "トヨタ": "toyota",
+    "honda": "honda",
+    "хонда": "honda",
+    "ホンダ": "honda",
+    "nissan": "nissan",
+    "ниссан": "nissan",
+    "日産": "nissan",
+    "ニッサン": "nissan",
+    "mazda": "mazda",
+    "мазда": "mazda",
+    "マツダ": "mazda",
+    "subaru": "subaru",
+    "субару": "subaru",
+    "スバル": "subaru",
+    "audi": "audi",
+    "ауди": "audi",
+    "アウディ": "audi",
+    "lexus": "lexus",
+    "лексус": "lexus",
+    "レクサス": "lexus",
+    "mercedes": "mercedes",
+    "benz": "mercedes",
+    "mercedes-benz": "mercedes",
+    "мерседес": "mercedes",
+    "メルセデス": "mercedes",
+    "ベンツ": "mercedes",
+}
+
+
+def _resolve_catalog_base_url(target_filters: Optional[dict[str, Any]]) -> tuple[Optional[str], Optional[str]]:
+    brand_raw = str((target_filters or {}).get("brand") or "").strip().lower()
+    if not brand_raw:
+        return None, None
+    slug = _BRAND_CATALOG_SLUGS.get(brand_raw)
+    if not slug:
+        return None, None
+    return f"https://www.carsensor.net/catalog/{slug}/", slug
+
+
 def _matches_target(car: dict[str, Any], target_filters: dict[str, Any]) -> bool:
     """Best-effort target matching to prioritize relevant rows for on-demand queries."""
     brand = str(target_filters.get("brand") or "").strip().lower()
@@ -29,13 +74,23 @@ def run_scraper(
 ) -> dict[str, int]:
     """Main scraper entry point. Tries BeautifulSoup first, falls back to Playwright."""
     page_limit = max_pages or settings.SCRAPE_MAX_PAGES
-    print(f"[scraper] Starting scrape job (pages={page_limit})...")
+    source_base_url, brand_slug = _resolve_catalog_base_url(target_filters)
+    source_label = f"catalog:{brand_slug}" if brand_slug else "usedcar:global"
+    effective_filters = dict(target_filters or {})
+    if brand_slug:
+        # Source already scoped by brand URL; avoid brittle text matching on mixed-language brand names.
+        effective_filters.pop("brand", None)
+
+    print(f"[scraper] Starting scrape job (pages={page_limit}, source={source_label})...")
 
     cars = []
 
     # Try BeautifulSoup first
     try:
-        cars = scrape_listings(max_pages=page_limit)
+        scrape_kwargs = {"max_pages": page_limit}
+        if source_base_url:
+            scrape_kwargs["base_url"] = source_base_url
+        cars = scrape_listings(**scrape_kwargs)
         print(f"[scraper] BS4 found {len(cars)} listings")
     except Exception as e:
         print(f"[scraper] BS4 scraper failed: {e}")
@@ -48,31 +103,36 @@ def run_scraper(
 
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            cars = loop.run_until_complete(
-                scrape_listings_playwright(max_pages=page_limit)
-            )
+            pw_kwargs = {"max_pages": page_limit}
+            if source_base_url:
+                pw_kwargs["base_url"] = source_base_url
+            cars = loop.run_until_complete(scrape_listings_playwright(**pw_kwargs))
             loop.close()
             print(f"[scraper] Playwright found {len(cars)} listings")
         except Exception as e:
             print(f"[scraper] Playwright scraper also failed: {e}")
 
     used_fallback_expansion = False
-    if target_filters and cars:
-        filtered = [car for car in cars if _matches_target(car, target_filters)]
+    if effective_filters and cars:
+        filtered = [car for car in cars if _matches_target(car, effective_filters)]
         print(
             f"[scraper] Target filter match: {len(filtered)} of {len(cars)} rows "
-            f"for filters={target_filters}"
+            f"for filters={effective_filters}"
         )
         if not filtered and allow_fallback_expansion and page_limit < settings.SCRAPE_FALLBACK_MAX_PAGES:
             fallback_pages = settings.SCRAPE_FALLBACK_MAX_PAGES
             print(
                 "[scraper] No target matches in initial pass; "
-                f"expanding scrape to {fallback_pages} pages"
+                f"expanding scrape to {fallback_pages} pages from source={source_label}"
             )
             used_fallback_expansion = True
             try:
-                cars = scrape_listings(max_pages=fallback_pages)
+                expanded_kwargs = {"max_pages": fallback_pages}
+                if source_base_url:
+                    expanded_kwargs["base_url"] = source_base_url
+                cars = scrape_listings(**expanded_kwargs)
                 print(f"[scraper] Expanded BS4 found {len(cars)} listings")
+                cars = [car for car in cars if _matches_target(car, effective_filters)]
             except Exception as e:
                 print(f"[scraper] Expanded BS4 scrape failed: {e}")
         else:

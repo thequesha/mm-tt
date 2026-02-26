@@ -74,9 +74,18 @@ def fetch_page(url: str) -> str:
     return response.text
 
 
-def scrape_page(page: int = 1) -> list[dict]:
+def _build_page_url(base_url: str, page: int) -> str:
+    if "{page}" in base_url:
+        return base_url.format(page=page if page > 1 else "")
+    normalized = base_url.rstrip("/") + "/"
+    if page <= 1:
+        return normalized
+    return f"{normalized}index{page}.html"
+
+
+def scrape_page(page: int = 1, base_url: str = BASE_URL) -> list[dict]:
     """Scrape a single listing page from carsensor.net. Returns list of car dicts."""
-    url = BASE_URL.format(page=page if page > 1 else "")
+    url = _build_page_url(base_url=base_url, page=page)
     html = fetch_page(url)
     soup = BeautifulSoup(html, "lxml")
     cars = []
@@ -154,12 +163,12 @@ def scrape_page(page: int = 1) -> list[dict]:
     return cars
 
 
-def scrape_listings(max_pages: int = 3) -> list[dict]:
+def scrape_listings(max_pages: int = 3, base_url: str = BASE_URL) -> list[dict]:
     """Scrape multiple pages and return all cars."""
     all_cars = []
     for page in range(1, max_pages + 1):
         try:
-            cars = scrape_page(page)
+            cars = scrape_page(page=page, base_url=base_url)
             all_cars.extend(cars)
             print(f"[scraper:bs] Page {page}: found {len(cars)} listings")
             if not cars:

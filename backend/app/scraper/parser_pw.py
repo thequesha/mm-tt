@@ -1,12 +1,12 @@
 import re
 from typing import Optional
 
-from app.scraper.parser_bs import parse_price, parse_year
+from app.scraper.parser_bs import _build_page_url, parse_price, parse_year
 
 BASE_URL = "https://www.carsensor.net/usedcar/index{page}.html"
 
 
-async def scrape_listings_playwright(max_pages: int = 3) -> list[dict]:
+async def scrape_listings_playwright(max_pages: int = 3, base_url: str = BASE_URL) -> list[dict]:
     """Fallback scraper using Playwright for JS-heavy pages."""
     try:
         from playwright.async_api import async_playwright
@@ -23,7 +23,7 @@ async def scrape_listings_playwright(max_pages: int = 3) -> list[dict]:
 
         for page_num in range(1, max_pages + 1):
             try:
-                url = BASE_URL.format(page=page_num if page_num > 1 else "")
+                url = _build_page_url(base_url=base_url, page=page_num)
                 await page.goto(url, wait_until="domcontentloaded")
                 await page.wait_for_timeout(3000)
 
