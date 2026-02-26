@@ -1,3 +1,5 @@
+import re
+
 import google.generativeai as genai
 
 from bot.config import settings
@@ -49,6 +51,47 @@ search_cars_function = genai.protos.FunctionDeclaration(
 
 tool = genai.protos.Tool(function_declarations=[search_cars_function])
 
+BRAND_ALIASES = {
+    "bmw": "BMW",
+    "бмв": "BMW",
+    "toyota": "Toyota",
+    "тойота": "Toyota",
+    "honda": "Honda",
+    "хонда": "Honda",
+    "nissan": "Nissan",
+    "ниссан": "Nissan",
+    "mercedes": "Mercedes",
+    "benz": "Mercedes",
+    "мерседес": "Mercedes",
+    "audi": "Audi",
+    "ауди": "Audi",
+    "mazda": "Mazda",
+    "мазда": "Mazda",
+    "subaru": "Subaru",
+    "субару": "Subaru",
+    "lexus": "Lexus",
+    "лексус": "Lexus",
+}
+
+COLOR_ALIASES = {
+    "red": "red",
+    "красн": "red",
+    "blue": "blue",
+    "син": "blue",
+    "black": "black",
+    "черн": "black",
+    "чёрн": "black",
+    "white": "white",
+    "бел": "white",
+    "gray": "gray",
+    "grey": "gray",
+    "сер": "gray",
+    "green": "green",
+    "зел": "green",
+    "yellow": "yellow",
+    "жел": "yellow",
+}
+
 SYSTEM_PROMPT = """You are a helpful car search assistant. Users will ask you to find cars in natural language.
 Your job is to extract search parameters from their query and call the search_cars function.
 
@@ -64,8 +107,54 @@ Important notes:
 """
 
 
+def _extract_rule_based_params(user_message: str) -> dict:
+    """Best-effort parser for common brand/color/price patterns when LLM tool call is missing."""
+    text = user_message.lower()
+    params: dict = {}
+
+    for alias, brand in BRAND_ALIASES.items():
+        if re.search(rf"\b{re.escape(alias)}\b", text):
+            params["brand"] = brand
+            break
+
+    for alias, color in COLOR_ALIASES.items():
+        if alias in text:
+            params["color"] = color
+            break
+
+    max_mln = re.search(r"(?:до|up to|under|<=?)\s*(\d+(?:[.,]\d+)?)\s*(?:млн|million)", text)
+    if max_mln:
+        params["max_price"] = int(float(max_mln.group(1).replace(",", ".")) * 1_000_000)
+
+    min_mln = re.search(r"(?:от|from|>=?)\s*(\d+(?:[.,]\d+)?)\s*(?:млн|million)", text)
+    if min_mln:
+        params["min_price"] = int(float(min_mln.group(1).replace(",", ".")) * 1_000_000)
+
+    max_man = re.search(r"(?:до|up to|under|<=?)\s*(\d+(?:[.,]\d+)?)\s*万", text)
+    if max_man:
+        params["max_price"] = int(float(max_man.group(1).replace(",", ".")) * 10_000)
+
+    min_man = re.search(r"(?:от|from|>=?)\s*(\d+(?:[.,]\d+)?)\s*万", text)
+    if min_man:
+        params["min_price"] = int(float(min_man.group(1).replace(",", ".")) * 10_000)
+
+    return params
+
+
+def _merge_filters(primary: dict, fallback: dict) -> dict:
+    merged = dict(fallback)
+    for key, value in primary.items():
+        if value is None:
+            continue
+        if isinstance(value, str) and not value.strip():
+            continue
+        merged[key] = value
+    return merged
+
+
 async def extract_search_params(user_message: str) -> dict:
     """Use Gemini to extract car search parameters from a natural language query."""
+    fallback_params = _extract_rule_based_params(user_message)
     try:
         model = genai.GenerativeModel(
             model_name="gemini-1.5-flash",
@@ -85,11 +174,17 @@ async def extract_search_params(user_message: str) -> dict:
                     params = {}
                     for key, value in fc.args.items():
                         params[key] = value
-                    return params
+                    merged = _merge_filters(params, fallback_params)
+                    print(f"[llm] Merged params: {merged}")
+                    return merged
 
         # If no function call, return empty params (will return all cars)
-        return {}
+        if fallback_params:
+            print(f"[llm] Fallback params: {fallback_params}")
+        return fallback_params
 
     except Exception as e:
         print(f"[llm] Error extracting params: {e}")
-        return {}
+        if fallback_params:
+            print(f"[llm] Using fallback params after error: {fallback_params}")
+        return fallback_params
