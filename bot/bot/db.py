@@ -21,7 +21,11 @@ BRAND_SEARCH_ALIASES = {
 }
 
 
-def search_cars(filters: dict, limit: int = 10) -> list[Car]:
+def search_cars(
+    filters: dict,
+    limit: int = 10,
+    brand_match_in_model: bool = False,
+) -> list[Car]:
     """Search cars in the database based on filter parameters from LLM."""
     db: Session = SessionLocal()
     try:
@@ -32,6 +36,9 @@ def search_cars(filters: dict, limit: int = 10) -> list[Car]:
             brand_value = str(brand).strip()
             aliases = BRAND_SEARCH_ALIASES.get(brand_value.lower(), [brand_value])
             brand_conditions = [Car.brand.ilike(f"%{alias}%") for alias in aliases]
+            if brand_match_in_model:
+                for alias in aliases:
+                    brand_conditions.append(Car.model.ilike(f"%{alias}%"))
             query = query.filter(or_(*brand_conditions))
 
         model = filters.get("model")

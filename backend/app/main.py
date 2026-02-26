@@ -9,6 +9,7 @@ from app.database import SessionLocal, engine
 from app.models import Base
 from app.routers.auth_router import router as auth_router
 from app.routers.cars_router import router as cars_router
+from app.routers.scrape_router import router as scrape_router
 from app.scraper.scraper import run_scraper
 from app.seed import seed_admin
 
@@ -57,6 +58,7 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(cars_router)
+app.include_router(scrape_router)
 
 
 @app.get("/api/health")

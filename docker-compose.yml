@@ -29,6 +29,9 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       SCRAPE_INTERVAL_MINUTES: ${SCRAPE_INTERVAL_MINUTES}
       SCRAPE_MAX_PAGES: ${SCRAPE_MAX_PAGES:-20}
+      SCRAPE_TARGET_MAX_PAGES: ${SCRAPE_TARGET_MAX_PAGES:-6}
+      SCRAPE_FALLBACK_MAX_PAGES: ${SCRAPE_FALLBACK_MAX_PAGES:-20}
+      MAX_CONCURRENT_SCRAPES: ${MAX_CONCURRENT_SCRAPES:-1}
     depends_on:
       db:
         condition: service_healthy
@@ -52,9 +55,14 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
+      BACKEND_API_BASE_URL: ${BACKEND_API_BASE_URL:-http://backend:8000}
+      BOT_FRESH_WAIT_SECONDS: ${BOT_FRESH_WAIT_SECONDS:-12}
+      BOT_STATUS_POLL_INTERVAL_SECONDS: ${BOT_STATUS_POLL_INTERVAL_SECONDS:-2}
     depends_on:
       db:
         condition: service_healthy
+      backend:
+        condition: service_started
 
 volumes:
   mysql_data:

@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     ADMIN_PASSWORD: str = "admin123"
     SCRAPE_INTERVAL_MINUTES: int = 60
     SCRAPE_MAX_PAGES: int = 20
+    SCRAPE_TARGET_MAX_PAGES: int = 6
+    SCRAPE_FALLBACK_MAX_PAGES: int = 20
+    MAX_CONCURRENT_SCRAPES: int = 1
 
     class Config:
         env_file = ".env"
