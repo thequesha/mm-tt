@@ -20,6 +20,8 @@ RUN playwright install chromium
 
 COPY . .
 
+ENV PYTHONPATH=/app
+
 RUN chmod +x entrypoint.sh
 
 EXPOSE 8000
