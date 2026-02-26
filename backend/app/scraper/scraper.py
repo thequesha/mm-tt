@@ -39,8 +39,12 @@ def run_scraper():
     # Upsert into database
     db = SessionLocal()
     try:
-        inserted, updated = upsert_cars(db, cars)
-        print(f"[scraper] Done: {inserted} inserted, {updated} updated")
+        inserted, updated, skipped, failed = upsert_cars(db, cars)
+        print(
+            "[scraper] Done: "
+            f"{inserted} inserted, {updated} updated, "
+            f"{skipped} skipped, {failed} failed"
+        )
     except Exception as e:
         print(f"[scraper] DB upsert error: {e}")
         db.rollback()

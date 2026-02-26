@@ -31,7 +31,7 @@ def upgrade() -> None:
         "cars",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("brand", sa.String(100), nullable=False),
-        sa.Column("model", sa.String(100), nullable=False),
+        sa.Column("model", sa.Text(), nullable=False),
         sa.Column("year", sa.Integer(), nullable=True),
         sa.Column("price", sa.Integer(), nullable=True),
         sa.Column("color", sa.String(100), nullable=True),
@@ -41,14 +41,12 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(op.f("ix_cars_brand"), "cars", ["brand"], unique=False)
-    op.create_index(op.f("ix_cars_model"), "cars", ["model"], unique=False)
     # MySQL TEXT columns can't have a regular unique index, use a prefix
     op.execute("CREATE UNIQUE INDEX uq_cars_url ON cars (url(500))")
 
 
 def downgrade() -> None:
     op.drop_index("uq_cars_url", table_name="cars")
-    op.drop_index(op.f("ix_cars_model"), table_name="cars")
     op.drop_index(op.f("ix_cars_brand"), table_name="cars")
     op.drop_table("cars")
     op.drop_index(op.f("ix_users_username"), table_name="users")

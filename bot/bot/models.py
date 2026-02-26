@@ -11,7 +11,7 @@ class Car(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     brand = Column(String(100), nullable=False, index=True)
-    model = Column(String(100), nullable=False, index=True)
+    model = Column(Text, nullable=False)
     year = Column(Integer, nullable=True)
     price = Column(Integer, nullable=True)
     color = Column(String(100), nullable=True)

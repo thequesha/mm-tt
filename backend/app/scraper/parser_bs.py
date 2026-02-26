@@ -16,6 +16,18 @@ HEADERS = {
 }
 
 
+def normalize_text(text: str, max_len: Optional[int] = None) -> str:
+    """Normalize scraped text by collapsing whitespace and stripping control chars."""
+    if not text:
+        return ""
+    cleaned = text.replace("\u3000", " ").replace("\xa0", " ")
+    cleaned = "".join(ch for ch in cleaned if ch.isprintable())
+    cleaned = " ".join(cleaned.split())
+    if max_len is not None:
+        cleaned = cleaned[:max_len]
+    return cleaned
+
+
 def parse_price(text: str) -> Optional[int]:
     """Extract numeric price in 万円 (10,000 yen units) and convert to yen."""
     if not text:
@@ -57,6 +69,8 @@ def parse_year(text: str) -> Optional[int]:
 def fetch_page(url: str) -> str:
     response = requests.get(url, headers=HEADERS, timeout=30)
     response.raise_for_status()
+    # carsensor serves UTF-8; set explicitly to avoid mojibake in parsed fields
+    response.encoding = "utf-8"
     return response.text
 
 
@@ -82,28 +96,28 @@ def scrape_page(page: int = 1) -> list[dict]:
             if not title_el:
                 continue
 
-            title_text = title_el.get_text(strip=True)
+            title_text = normalize_text(title_el.get_text(" ", strip=True), max_len=1000)
             link = title_el.get("href", "")
             if link and not link.startswith("http"):
                 link = "https://www.carsensor.net" + link
 
             # Split title into brand and model (typically "Brand Model Trim")
             parts = title_text.split(None, 1)
-            brand = parts[0] if parts else title_text
-            model = parts[1] if len(parts) > 1 else ""
+            brand = normalize_text(parts[0] if parts else title_text, max_len=100)
+            model = normalize_text(parts[1] if len(parts) > 1 else "", max_len=2000)
 
             # Extract price
             price_el = item.select_one(
                 ".cas_detail_price, .casetPanel_price, [class*='price']"
             )
-            price_text = price_el.get_text(strip=True) if price_el else ""
+            price_text = normalize_text(price_el.get_text(" ", strip=True) if price_el else "")
             price = parse_price(price_text)
 
             # Extract year
             year_el = item.select_one(
                 ".cas_detail_year, .casetPanel_spec, [class*='year']"
             )
-            year_text = year_el.get_text(strip=True) if year_el else ""
+            year_text = normalize_text(year_el.get_text(" ", strip=True) if year_el else "")
             year = parse_year(year_text)
 
             # Extract color
@@ -114,13 +128,13 @@ def scrape_page(page: int = 1) -> list[dict]:
             for spec in spec_els:
                 text = spec.get_text(strip=True)
                 if "色" in text or "カラー" in text:
-                    color = text.replace("色", "").replace("カラー", "").strip()
+                    color = normalize_text(text.replace("色", "").replace("カラー", "").strip(), max_len=100)
                     break
             # Fallback: look for color in data attributes or dedicated elements
             if not color:
                 color_el = item.select_one("[class*='color']")
                 if color_el:
-                    color = color_el.get_text(strip=True)
+                    color = normalize_text(color_el.get_text(" ", strip=True), max_len=100)
 
             if link:
                 cars.append(
