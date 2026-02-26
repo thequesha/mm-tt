@@ -31,10 +31,7 @@ def search_cars(filters: dict, limit: int = 10) -> list[Car]:
         if brand:
             brand_value = str(brand).strip()
             aliases = BRAND_SEARCH_ALIASES.get(brand_value.lower(), [brand_value])
-            brand_conditions = []
-            for alias in aliases:
-                brand_conditions.append(Car.brand.ilike(f"%{alias}%"))
-                brand_conditions.append(Car.model.ilike(f"%{alias}%"))
+            brand_conditions = [Car.brand.ilike(f"%{alias}%") for alias in aliases]
             query = query.filter(or_(*brand_conditions))
 
         model = filters.get("model")

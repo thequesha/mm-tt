@@ -1,5 +1,6 @@
 import asyncio
 
+from app.config import settings
 from app.database import SessionLocal
 from app.scraper.parser_bs import scrape_listings
 from app.scraper.upsert import upsert_cars
@@ -13,7 +14,7 @@ def run_scraper():
 
     # Try BeautifulSoup first
     try:
-        cars = scrape_listings(max_pages=3)
+        cars = scrape_listings(max_pages=settings.SCRAPE_MAX_PAGES)
         print(f"[scraper] BS4 found {len(cars)} listings")
     except Exception as e:
         print(f"[scraper] BS4 scraper failed: {e}")
@@ -26,7 +27,9 @@ def run_scraper():
 
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            cars = loop.run_until_complete(scrape_listings_playwright(max_pages=3))
+            cars = loop.run_until_complete(
+                scrape_listings_playwright(max_pages=settings.SCRAPE_MAX_PAGES)
+            )
             loop.close()
             print(f"[scraper] Playwright found {len(cars)} listings")
         except Exception as e:

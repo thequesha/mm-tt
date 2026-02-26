@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     ADMIN_USERNAME: str = "admin"
     ADMIN_PASSWORD: str = "admin123"
     SCRAPE_INTERVAL_MINUTES: int = 60
+    SCRAPE_MAX_PAGES: int = 20
 
     class Config:
         env_file = ".env"

@@ -28,6 +28,7 @@ services:
       ADMIN_USERNAME: ${ADMIN_USERNAME}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       SCRAPE_INTERVAL_MINUTES: ${SCRAPE_INTERVAL_MINUTES}
+      SCRAPE_MAX_PAGES: ${SCRAPE_MAX_PAGES:-20}
     depends_on:
       db:
         condition: service_healthy
